@@ -139,6 +139,7 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({
   useEffect(() => {
     if (hierarchyChartData?.chartData && hierarchyChartData.chartData.length > 0) {
       const latest = hierarchyChartData.chartData[hierarchyChartData.chartData.length - 1];
+      console.log('[METRICS CARDS] Using hierarchy chart data:', latest);
       setFlowRateData({
         totalOFR: latest.totalOfr || 0,
         totalWFR: latest.totalWfr || 0,
@@ -148,6 +149,7 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({
       });
     } else if (chartData?.chartData && chartData.chartData.length > 0) {
       const latest = chartData.chartData[chartData.chartData.length - 1];
+      console.log('[METRICS CARDS] Using device chart data:', latest);
       setFlowRateData({
         totalOFR: latest.ofr || 0,
         totalWFR: latest.wfr || 0,
@@ -156,13 +158,13 @@ const MetricsCards: React.FC<MetricsCardsProps> = ({
         avgWLR: latest.wlr || 0,
       });
     } else {
-      // sensible defaults for empty state (you can remove/change these)
+      console.log('[METRICS CARDS] No data available, using defaults');
       setFlowRateData({
-        totalOFR: 264.93,
-        totalWFR: 264.93,
-        totalGFR: 264.93,
-        avgGVF: 65,
-        avgWLR: 85,
+        totalOFR: 0,
+        totalWFR: 0,
+        totalGFR: 0,
+        avgGVF: 0,
+        avgWLR: 0,
       });
     }
   }, [chartData, hierarchyChartData]);

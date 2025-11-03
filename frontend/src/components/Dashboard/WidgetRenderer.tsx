@@ -115,6 +115,8 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
           <CustomLineChart
             widgetConfig={widget}
             timeRange={timeRange}
+            selectedHierarchy={selectedHierarchy}
+            selectedDevice={selectedDevice}
           />
         </div>
       );

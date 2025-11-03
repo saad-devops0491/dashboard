@@ -511,13 +511,14 @@ router.post('/update-layout', protect, async (req, res) => {
 
 // GET /api/widgets/widget-data/:widgetId
 // Get widget data based on its configuration from data_source_config
+// Supports hierarchy and device filtering
 router.get('/widget-data/:widgetId', protect, async (req, res) => {
   try {
     const { widgetId } = req.params;
-    const { limit = 200, timeRange = '24h' } = req.query;
+    const { limit = 200, timeRange = '24h', hierarchyId, deviceId } = req.query;
     const companyId = req.user.company_id;
 
-    console.log(`[WIDGET DATA] Fetching data for widget ${widgetId}, timeRange: ${timeRange}`);
+    console.log(`[WIDGET DATA] Fetching data for widget ${widgetId}, timeRange: ${timeRange}, hierarchyId: ${hierarchyId}, deviceId: ${deviceId}`);
 
     const widgetResult = await database.query(
       `SELECT wd.data_source_config, wt.component_name, wt.name as widget_type
@@ -555,31 +556,60 @@ router.get('/widget-data/:widgetId', protect, async (req, res) => {
     else if (timeRange === '7d') timeFilter = "AND dd.created_at >= NOW() - INTERVAL '7 days'";
     else if (timeRange === '30d') timeFilter = "AND dd.created_at >= NOW() - INTERVAL '30 days'";
 
+    // Build device filter based on hierarchy or device selection
+    let deviceFilterJoin = '';
+    let deviceFilterWhere = '';
+    const queryParams = [companyId, dataSourceConfig.deviceTypeId, parseInt(limit)];
+
+    if (hierarchyId) {
+      // Recursive CTE to find all devices under hierarchy
+      console.log(`[WIDGET DATA] Applying hierarchy filter: ${hierarchyId}`);
+      deviceFilterJoin = `
+        WITH RECURSIVE hierarchy_tree AS (
+          SELECT id FROM hierarchy WHERE id = $4
+          UNION ALL
+          SELECT h.id FROM hierarchy h
+          JOIN hierarchy_tree ht ON h.parent_id = ht.id
+        )
+      `;
+      deviceFilterWhere = `AND d.hierarchy_id IN (SELECT id FROM hierarchy_tree)`;
+      queryParams.push(parseInt(hierarchyId));
+    } else if (deviceId) {
+      // Single device filter
+      console.log(`[WIDGET DATA] Applying device filter: ${deviceId}`);
+      deviceFilterWhere = `AND d.id = $4`;
+      queryParams.push(parseInt(deviceId));
+    }
+
     const seriesData = {};
+    let paramIndex = 5;
+
     for (const s of dataSourceConfig.seriesConfig) {
       console.log(`[WIDGET DATA] Loading series: ${s.displayName}, property: ${s.dataSourceProperty}, deviceTypeId: ${dataSourceConfig.deviceTypeId}`);
 
       const seriesQuery = `
+        ${deviceFilterJoin}
         SELECT
           dd.created_at as timestamp,
           dd.serial_number,
-          COALESCE((dd.data->>$1)::numeric, 0) as value
+          COALESCE((dd.data->>$${paramIndex})::numeric, 0) as value
         FROM device_data dd
         INNER JOIN device d ON dd.device_id = d.id
-        WHERE d.company_id = $2
-          AND d.device_type_id = $3
+        WHERE d.company_id = $1
+          AND d.device_type_id = $2
+          ${deviceFilterWhere}
           ${timeFilter}
-          AND dd.data ? $1
+          AND dd.data ? $${paramIndex}
         ORDER BY dd.created_at ASC
-        LIMIT $4
+        LIMIT $3
       `;
 
-      const seriesResult = await database.query(seriesQuery, [
+      const seriesParams = [
         s.dataSourceProperty,
-        companyId,
-        dataSourceConfig.deviceTypeId,
-        parseInt(limit)
-      ]);
+        ...queryParams
+      ];
+
+      const seriesResult = await database.query(seriesQuery, seriesParams);
 
       console.log(`[WIDGET DATA] Series ${s.displayName} returned ${seriesResult.rows.length} data points`);
 
@@ -599,7 +629,12 @@ router.get('/widget-data/:widgetId', protect, async (req, res) => {
     res.json({
       success: true,
       data: seriesData,
-      config: dataSourceConfig
+      config: dataSourceConfig,
+      context: {
+        hierarchyId: hierarchyId || null,
+        deviceId: deviceId || null,
+        timeRange
+      }
     });
   } catch (error) {
     console.error('Error fetching widget data:', error);

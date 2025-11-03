@@ -240,25 +240,28 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
   // Load metrics data (only when device/hierarchy changes, not when time range changes)
   useEffect(() => {
     if (selectedDevice && !selectedHierarchy) {
+      console.log(`[DASHBOARD] Loading metrics for device: ${selectedDevice.serial_number || selectedDevice.deviceSerial}`);
       loadDeviceMetricsData(selectedDevice.deviceId || selectedDevice.id);
       setMetricsHierarchyChartData(null);
     } else if (selectedHierarchy && !selectedDevice) {
+      console.log(`[DASHBOARD] Loading metrics for hierarchy: ${selectedHierarchy.name}`);
       loadHierarchyMetricsData(selectedHierarchy.id);
       setMetricsChartData(null);
     }
-    // only when selected device or hierarchy changes (or token)
   }, [selectedDevice, selectedHierarchy, token]);
 
   // Load flow rate chart data (updates when device/hierarchy OR time range changes)
   useEffect(() => {
     if (selectedDevice && !selectedHierarchy) {
+      console.log(`[DASHBOARD] Loading flow rate data for device: ${selectedDevice.serial_number || selectedDevice.deviceSerial}`);
       loadDeviceFlowRateData(selectedDevice.deviceId || selectedDevice.id);
       setFlowRateHierarchyChartData(null);
     } else if (selectedHierarchy && !selectedDevice) {
+      console.log(`[DASHBOARD] Loading flow rate data for hierarchy: ${selectedHierarchy.name}`);
       loadHierarchyFlowRateData(selectedHierarchy.id);
       setFlowRateChartData(null);
     }
-  }, [selectedDevice, selectedHierarchy, timeRange, token]); // timeRange dependency here
+  }, [selectedDevice, selectedHierarchy, timeRange, token]);
 
   // Auto-refresh every 5 seconds - refresh both metrics and flow rate data
   useEffect(() => {
@@ -269,16 +272,15 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
 
       refreshIntervalRef.current = setInterval(() => {
         setLastRefresh(new Date());
+        console.log('[DASHBOARD] Auto-refresh triggered');
 
         if (selectedDevice && !selectedHierarchy) {
-          // Refresh metrics with default time range
+          console.log('[DASHBOARD] Auto-refreshing device data');
           loadDeviceMetricsData(selectedDevice.deviceId || selectedDevice.id);
-          // Refresh flow rate with current time range
           loadDeviceFlowRateData(selectedDevice.deviceId || selectedDevice.id);
         } else if (selectedHierarchy && !selectedDevice) {
-          // Refresh metrics with default time range
+          console.log('[DASHBOARD] Auto-refreshing hierarchy data');
           loadHierarchyMetricsData(selectedHierarchy.id);
-          // Refresh flow rate with current time range
           loadHierarchyFlowRateData(selectedHierarchy.id);
         }
       }, 5000);

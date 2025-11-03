@@ -17,6 +17,8 @@ import ChartModal from '../Charts/ChartModel';
 interface CustomLineChartProps {
   widgetConfig: any;
   timeRange: '1day' | '7days' | '1month';
+  selectedHierarchy?: any | null;
+  selectedDevice?: any | null;
 }
 
 interface SeriesData {
@@ -43,7 +45,7 @@ const formatTickByRange = (value: number, timeRange: string) => {
 
 const CHART_COLORS = ['#EC4899', '#38BF9D', '#F59E0B', '#8B5CF6', '#EF4444', '#10B981'];
 
-const CustomLineChart: React.FC<CustomLineChartProps> = ({ widgetConfig, timeRange }) => {
+const CustomLineChart: React.FC<CustomLineChartProps> = ({ widgetConfig, timeRange, selectedHierarchy, selectedDevice }) => {
   const { theme } = useTheme();
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ const CustomLineChart: React.FC<CustomLineChartProps> = ({ widgetConfig, timeRan
 
   useEffect(() => {
     loadWidgetData();
-  }, [widgetConfig.widgetId, timeRange]);
+  }, [widgetConfig.widgetId, timeRange, selectedHierarchy, selectedDevice]);
 
   const loadWidgetData = async () => {
     if (!token || !widgetConfig.widgetId) return;
@@ -70,8 +72,22 @@ const CustomLineChart: React.FC<CustomLineChartProps> = ({ widgetConfig, timeRan
         '1month': '30d',
       };
 
+      const params = new URLSearchParams({
+        timeRange: timeRangeMap[timeRange],
+        limit: '200'
+      });
+
+      if (selectedHierarchy?.id) {
+        params.append('hierarchyId', selectedHierarchy.id);
+        console.log(`[CUSTOM LINE CHART] Fetching widget data for hierarchy: ${selectedHierarchy.name}`);
+      } else if (selectedDevice?.id || selectedDevice?.deviceId) {
+        const deviceId = selectedDevice.id || selectedDevice.deviceId;
+        params.append('deviceId', deviceId);
+        console.log(`[CUSTOM LINE CHART] Fetching widget data for device: ${selectedDevice.serial_number}`);
+      }
+
       const response = await fetch(
-        `http://localhost:5000/api/widgets/widget-data/${widgetConfig.widgetId}?timeRange=${timeRangeMap[timeRange]}&limit=200`,
+        `http://localhost:5000/api/widgets/widget-data/${widgetConfig.widgetId}?${params}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
